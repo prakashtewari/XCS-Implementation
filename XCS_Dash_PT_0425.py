@@ -3,11 +3,6 @@
 Created on Tue Apr 24 10:34:11 2018
 
 @author: Prakash.Tiwari
-Steps  -
-a. Run code from line top till 100 to get first version of the model
-b. To update the model run next two lines 
-c. To update the model again run next two lines 
-d. Visualisation Part - Updated
 
 """
 #!/usr/bin/env python
@@ -22,7 +17,8 @@ os.chdir(r'C:\Work\Daily Tasks\Machine Learning Udemy\iAgent\Urbanwicz_XCS_PT')
 
 #Import modules
 from XCS_Main import XCS_Start
-
+from XCS_GHEnvironment import *
+from XCS import *
 import dash
 import dash_core_components as dcc
 import dash_html_components as html
@@ -33,6 +29,8 @@ import numpy as np
 from random import randint
 import plotly.graph_objs as go
 import base64
+
+
 
 """
 GUI Part
@@ -75,43 +73,53 @@ app.layout = html.Div([
                 
                 html.Br(),
                 
+                dcc.Upload(html.Button('Upload File')),
+                
                 #Loading Data for training the model
-#                html.Label('Upload Data'),    
-#                dcc.Upload(
-#                    id='upload-data-1',
-#                    children=html.Div([
-#                        html.A('Select Files')
-#                    ]),
-#                style={
-#                    'width': '10%',
-#                    'height': '80px',
-#                    'lineHeight': '60px',
-#                    'borderWidth': '1px',
-#                    'borderStyle': 'dashed',
-#                    'borderRadius': '5px',
-#                    'textAlign': 'center',
-#                    'margin': '10px'
-#                        },
-#                # Allow multiple files to be uploaded
-#                    multiple=False
-#                ),
-#                html.Div(id='output-data-upload'),
-#                html.Div(dt.DataTable(rows=[{}]), style={'display': 'none'}),
+                html.Label('Upload Data'),    
+                dcc.Upload(
+                    id='upload-data',
+                    children=html.Div([
+                        html.A('Select Files')
+                    ]),
+                style={
+                    'width': '10%',
+                    'height': '80px',
+                    'lineHeight': '60px',
+                    'borderWidth': '1px',
+                    'borderStyle': 'dashed',
+                    'borderRadius': '5px',
+                    'textAlign': 'center',
+                    'margin': '10px'
+                        },
+                # Allow multiple files to be uploaded
+                    multiple=False
+                ),
+                html.Div(id='output-data-upload'),
+                html.Div(dt.DataTable(rows=[{}]), style={'display': 'none'}),
                 
                
                 html.Br(),
-                html.Label('Upload data'),
-                dcc.Input(id='filename', type = 'text'),
+                html.Button('View data', id='button-4'),
+                html.Div(id='view-data'),
+                
+                
+                html.Label('upload-data', title = 'Enter first data'),
+                dcc.Input(id='filename', value = 'Data1.txt'),
                 
                 html.Br(),
+                
                 #Button for running on training data
                 html.Button('Run XCS algo', id='button-1'),
-                html.Div(id='run-xcs-button'),
+                html.Div(id='run-xcs-button', ),
+
+                html.Br(),
+                html.Label('upload-new-data', title = 'Enter new data'),
+                dcc.Input(id='newData', value = 'Data2.txt'),
+                                
                 
                 html.Br(),
-                
-                html.Br(),
-                html.Button('Updated XCS algo', id='button-2'),
+                html.Button('Update XCS algo', id='button-2'),
                 html.Div(id='update-xcs-button'),
                 html.Br(),
                 
@@ -123,14 +131,14 @@ app.layout = html.Div([
                 ]
             )
               
-def parse_data(filename):
+def parse_data(contents, filename):
     
     print filename
     
     try:
         if 'csv' or 'txt' in filename:
             # Assume that the user uploaded a CSV file
-            df = pd.read_csv(filename, sep = '\t')
+            df = pd.read_csv(filename, sep = '\t', nrows = 10)
         elif 'xls' in filename:
             # Assume that the user uploaded an excel file
             df = pd.read_excel(filename)
@@ -161,19 +169,31 @@ def parse_data(filename):
 
 
 @app.callback(Output('output-data-upload', 'children'),
-              [Input('upload-data-1', 'filename')])
-def print_output(filename):
-    if filename is not None:
-        children = [
-            parse_data(filename) ]
+              [Input('upload-data', 'contents'),
+              Input('upload-data', 'filename')
+              ])
+def print_output(contents, filename):
+    if contents is not None:
+        # do something with contents
+        
+        if n_clicks >0: 
+            children = parse_data(contents, filename)
+        else:
+            children='processed data from file ' + filename
+        print contents
         return children
+    else:
+        return 'no contents'
 
-#@app.callback(Output('output-data-upload2', 'children'),
-#              [Input('upload-data-2', 'filename')])
-#def upload_data(filename):
-#    if filename is not None:
-#        return str(filename                   
-    
+
+"""
+XCS Results
+
+"""
+#
+global result
+result = {}
+
 @app.callback(
     Output('run-xcs-button', 'children'),
     [Input('button-1', 'n_clicks')
@@ -184,9 +204,162 @@ def print_output(filename):
            State('filename', 'value')
            ]
            )
-def XCS_Start1(n_clicks, input1, input2 , input3 , filename):
+def XCS_Start1(n_clicks, input1, input2 , input3 , filename ):
 
-    return XCS_Start(n_clicks, input1, input2 , input3 , filename)
+    print 'n_clicks = '+str(n_clicks) +'\n'
+    print 'filename = '+ str(filename) +'\n'
+    print 'input1/reward = '+str(input1) +'\n'
+    print 'input2/Pop size= '+str(input2) +'\n'
+    print 'input3/GA algo = '+str(input3) +'\n'
+    
+    #trainData = 'Data1.txt'#"2_1000_0_1600_0_0_CV_0_Train.txt" 
+    #trainData = "Data1.txt"
+    trainData =filename   
+    #input1, input2, input3, input4 = 1000, 200, 0, 0
+    graphPerformance = False
+    testData = "2_1000_0_1600_0_0_CV_0_Test.txt"
+    outProg = "FirstDataTrack"
+    outPop = "PopulationOutput"
+    outNew = "NewDataTrack"
+    bitLength = 1    
+    reward = input1 
+    #reward = 1000
+    CVpartitions = 2
+    iterInput = '500'
+    #trackCycles = 'Default' # set tracking cycles to number of data samples - trackCycles = 100 
+    trackCycles = '100'#100
+    pop = input2 
+    #pop = 200
+    sub = 0
+    select = input3
+    #select = 0
+    
+    #Figure out the iteration stops for evaluation, and the max iterations.
+    iterList = iterInput.split('.')
+    for i in range(len(iterList)):
+        iterList[i] = int(iterList[i])
+    lastIter = iterList[len(iterList)-1]
+    
+    #Sets up up algorithm to be run.
+    e = GHEnvironment(trainData,testData,bitLength,reward)
+    sampleSize = e.getNrSamples()
+    
+    global xcs    
+    xcs = XCS(e, outProg, outNew, outPop, bitLength, CVpartitions, graphPerformance)
+
+    #Set some XCS parameters.
+    if trackCycles == 'Default':
+        xcs.setTrackingIterations(sampleSize)
+    else:
+        xcs.setTrackingIterations(trackCycles)
+    xcs.setNumberOfTrials(lastIter,iterList)
+    xcs.setPopulationSize(pop)
+    xcs.setSubsumption(sub)
+    xcs.setSelection(select)      
+
+    
+    if n_clicks == 1:
+        print '\n Running XCS implementation for n_clicks = {}'.format(n_clicks)+ ' \n'
+        print 'trainData '.format(trainData)
+
+        xcs.runXCS() 
+        print  xcs.test_output
+        global result
+        result['filename {}'.format(trainData)] = xcs.test_output[0][1]
+        
+        print 'Result {}'.format(result)
+    
+        trace = go.Bar(
+        x = list(result.keys()),
+        y = list(result.values())
+            )
+        fig = go.Figure(data = [trace])
+        #accuracy = [xcs.test_output[0][1]]
+        
+        return dcc.Graph(
+                id = 'run-xcs',
+                figure = fig)
+         
+
+@app.callback(
+    Output('update-xcs-button', 'children'),
+    [Input('button-2', 'n_clicks')
+     ],
+    state=[State('input-1', 'value'),
+           State('input-2', 'value'),
+           State('input-3', 'value'),
+           State('newData', 'value')
+           ]
+           )
+def XCS_Start2(n_clicks, input1, input2 , input3 , newData ):
+
+    print 'n_clicks = '+str(n_clicks) +'\n'
+    print 'input1/reward = '+str(input1) +'\n'
+    print 'input2/Pop size= '+str(input2) +'\n'
+    print 'input3/GA algo = '+str(input3) +'\n'
+    print 'NewData {}'.format(newData)
+    
+    #trainData = 'Data1.txt'#"2_1000_0_1600_0_0_CV_0_Train.txt" 
+    #trainData = "Data1.txt"
+    trainData = newData
+    
+    
+    #input1, input2, input3, input4 = 1000, 200, 0, 0
+    graphPerformance = False
+    testData = "2_1000_0_1600_0_0_CV_0_Test.txt"
+    outProg = "FirstDataTrack"
+    outPop = "PopulationOutput"
+    outNew = "NewDataTrack"
+    bitLength = 1    
+    reward = input1 
+    #reward = 1000
+    CVpartitions = 2
+    iterInput = '500'
+    #trackCycles = 'Default' # set tracking cycles to number of data samples - trackCycles = 100 
+    trackCycles = '100'#100
+    pop = input2 
+    #pop = 200
+    sub = 0
+    select = input3
+    #select = 0
+    
+    #Figure out the iteration stops for evaluation, and the max iterations.
+    iterList = iterInput.split('.')
+    for i in range(len(iterList)):
+        iterList[i] = int(iterList[i])
+    lastIter = iterList[len(iterList)-1]
+    
+
+    print '\n Running New XCS implementation for n_clicks = {}'.format(n_clicks)+ ' \n'
+    
+    #print 'XCS Test Output from first run {}'.result['filename %c'%trainData] +'\n'
+
+    global xcs
+    xcs.updateXCS(newData)
+    print 'XCS Test Output from n_clicks = {}'.format(n_clicks) + ' is {}'.format(xcs.test_output)
+    
+    global result
+    result['filename {}'.format(newData)] = xcs.test_output[i+1][1]
+    
+    print 'Result {}'.format(result)
+    print '\n For Graph \n'
+    
+    print '\n n_clicks = {}'.format(n_clicks)
+    print '\n accuracy = {}'.format(result['filename {}'.format(newData)])
+    
+    trace = go.Bar(
+            x = list(result.keys()),
+            y = list(result.values())
+            )
+    fig = go.Figure(data = [trace])
+    #return (html.H4(str(XCS_func(1,1))))
+    
+    return dcc.Graph(
+                    id = 'run-xcs',
+                    figure= fig
+                    )
+       
+
 
 if __name__ == '__main__':
     app.run_server(debug=True, threaded=True)

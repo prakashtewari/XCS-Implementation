@@ -72,7 +72,10 @@ app.layout = html.Div([
                              value = 0),
                              
                 html.Br(),
-                
+                html.Label('Learning cycle', title = 'Enter learning cycles (separated by dot)'),
+                dcc.Input(id='input-4', type = 'text', value = '500'),
+                                
+                html.Hr(),
 
                 #Loading Data for training the model
                 dcc.Upload(
@@ -145,93 +148,64 @@ app.layout = html.Div([
                 ]
             )
 
+   
 
-@app.callback(
-    Output('export-files-button', 'children'),
-    [Input('button-3', 'n_clicks')])
-def XCS_Export(n_clicks):
-    
-    while n_clicks >0:
-        pd.DataFrame(result, index = [0]).to_csv(u'Export\Results.csv')
-        pd.read_csv()
-        return html.Div('Accuracy file is exported.')
-        
-        
-              
-def parse_data(contents, filename):
-    
-    print filename
-    
-    try:
-        if 'csv' or 'txt' in filename:
-            # Assume that the user uploaded a CSV file
-            df = pd.read_csv(filename, sep = '\t', nrows = 10)
-        elif 'xls' in filename:
-            # Assume that the user uploaded an excel file
-            df = pd.read_excel(filename)
-    except Exception as e:
-        print(e)
-        return html.Div([
-            'There was an error processing this file.'
-        ])
-
-    return html.Div([
-        html.H5(filename),
-        
-        # Use the DataTable prototype component:
-        # github.com/plotly/dash-table-experiments
-        dt.DataTable(rows=df.to_dict('records')),
-
-        #dt.VirtualizedTable(df),
-        html.Hr(),  # horizontal line
-
-        # For debugging, display the raw contents provided by the web browser
-        html.Div('Raw Content'),
-        html.Pre(contents[0:10] + '...', style={
-            'whiteSpace': 'pre-wrap',
-            'wordBreak': 'break-all'
-        })
-    ])
                         
+"""
+XCS Results
+"""
 
+#
+global result
+result = {}
+      
+###################
+## Callback functions        
+###################
 
 @app.callback(Output('output-data-upload', 'children'),
               [Input('upload-data', 'contents'),
               Input('upload-data', 'filename')
               ])
 def print_output(contents, filename):
-    if contents is not None:
-        # do something with contents
-        children = [parse_data(contents, filename)]
-        print filename
-        print 'processed data from file ' + filename
-        #print contents
-        return children
-    else:
-        return 'no contents'
+    """
+    Callback Function to print the output of the uploaded data. 
+    Calls parse_data to return the output
+    """
+    return [parse_data(contents, filename)]
+
     
 @app.callback(Output('output-data-upload-new', 'children'),
               [Input('upload-data-new', 'contents'),
               Input('upload-data-new', 'filename')
               ])
 def print_output_new(contents, filename):
-    if contents is not None:
-        # do something with contents
-        children = [parse_data(contents, filename)]
-        print filename
-        print 'processed data from file ' + filename
-        #print contents
-        return children
-    else:
-        return 'no contents'    
+    """
+    Callback Function to print the output of the uploaded data. 
+    Calls parse_data to return the output
+    """
+    return [parse_data(contents, filename)]
 
-
-"""
-XCS Results
-"""
-#
-global result
-result = {}
+@app.callback(
+    Output('export-files-button', 'children'),
+    [Input('button-3', 'n_clicks')],
+    state=[State('input-4', 'value')]
+    )
+def XCS_Export(n_clicks, value):
+    """
+    Callback Function to export the Result file and Rule population. 
+    Executed from the button and takes input the iteration Input
+    """
+    
+    while n_clicks >0:
+        pd.DataFrame(result, index = [0]).to_csv(u'Export\Results.csv')
+        print 'Accuracy file exported'
+        #Figure out the iteration stops for evaluation, and the max iterations.
+        iterList, lastIter = iterFunc(value)
+    
+        txtToExcel(textData = 'PopulationOutput.%d.txt'%lastIter , excelData = 'Export\PopulationOutput_%d_run.xlsx'%n_clicks , excelSheet = '%d_run'%n_clicks)
+        print 'Rule population exported'
+        return html.Div('Accuracy and rule population files are exported.') 
 
 @app.callback(
     Output('run-xcs-button', 'children'),
@@ -240,50 +214,25 @@ result = {}
      ],
     state=[State('input-1', 'value'),
            State('input-2', 'value'),
-           State('input-3', 'value')
+           State('input-3', 'value'),
+           State('input-4', 'value')
            #,State('filename', 'value')
            ]
            )
-def XCS_Run(n_clicks, filename, input1, input2 , input3 ):
-    
+def XCS_Run(n_clicks, filename, input1, input2 , input3, input4 ):
+    """
+    Callback Function to run the xcs algorithm for the first time
+    XCS is a global object which will be executed upon clicking of the 'Run XCS algo' button in the UI
+    Returns a dictionary containing accuracy on the testing data
+    """  
     while n_clicks> 0:
-
+        
         print 'n_clicks = '+str(n_clicks) +'\n'
-        print 'filename = '+ str(filename) +'\n'
-        print 'input1/reward = '+str(input1) +'\n'
-        print 'input2/Pop size= '+str(input2) +'\n'
-        print 'input3/GA algo = '+str(input3) +'\n'
         
-        #trainData = 'Data1.txt'#"2_1000_0_1600_0_0_CV_0_Train.txt" 
-        #trainData = "Data1.txt"
-        trainData =filename   
-        #input1, input2, input3, input4 = 1000, 200, 0, 0
-        graphPerformance = False
-        testData = "2_1000_0_1600_0_0_CV_0_Test.txt"
-        outProg = "FirstDataTrack"
-        outPop = "PopulationOutput"
-        outNew = "NewDataTrack"
-        bitLength = 1    
-        reward = input1 
-        #reward = 1000
-        CVpartitions = 2
-        iterInput = '5000'
-        #trackCycles = 'Default' # set tracking cycles to number of data samples - trackCycles = 100 
-        trackCycles = '100'#100
-        pop = input2 
-        #pop = 200
-        sub = 0
-        select = input3
-        #select = 0
-        
-        #Figure out the iteration stops for evaluation, and the max iterations.
-        iterList = iterInput.split('.')
-        for i in range(len(iterList)):
-            iterList[i] = int(iterList[i])
-        lastIter = iterList[len(iterList)-1]
+        outProg, outNew, outPop, bitLength, CVpartitions, graphPerformance, iterList, lastIter, sub, testData, trackCycles = XCS_parameters(filename, input1, input2, input3, input4)
         
         #Sets up up algorithm to be run.
-        e = GHEnvironment(trainData,testData,bitLength,reward)
+        e = GHEnvironment(inFileString = filename ,  testFileString= testData, attLength = bitLength, reward = input1)
         sampleSize = e.getNrSamples()
         
         global xcs    
@@ -295,17 +244,17 @@ def XCS_Run(n_clicks, filename, input1, input2 , input3 ):
         else:
             xcs.setTrackingIterations(trackCycles)
         xcs.setNumberOfTrials(lastIter,iterList)
-        xcs.setPopulationSize(pop)
-        xcs.setSubsumption(sub)
-        xcs.setSelection(select)      
+        xcs.setPopulationSize(popsize = input2)
+        xcs.setSubsumption(subsumption = sub)
+        xcs.setSelection(selection = input3)      
     
         print '\n Running XCS implementation for n_clicks = {}'.format(n_clicks)+ ' \n'
-        print 'trainData '.format(trainData)
 
         xcs.runXCS() 
         print  xcs.test_output
+
         global result
-        result['{}'.format(trainData)] = xcs.test_output[0][1]
+        result['{}'.format(filename)] = xcs.test_output[0][1]
         
         print 'Result {}'.format(result)
     
@@ -335,66 +284,33 @@ def XCS_Run(n_clicks, filename, input1, input2 , input3 ):
      ],
     state=[State('input-1', 'value'),
            State('input-2', 'value'),
-           State('input-3', 'value')
+           State('input-3', 'value'),
+           State('input-4', 'value')
            #,State('newData', 'value')
            ]
            )
-def XCS_Update(n_clicks, filename, input1, input2 , input3 ):
+def XCS_Update(n_clicks, filename, input1, input2 , input3, input4 ):
+    """
+    Callback Function to update the xcs algorithm. 
+    XCS is a global object which will be updated upon clicking of the 'Update XCS algo' button in the UI
+    Returns a dictionary containing accuracy on the testing data
+    """
     
-    while n_clicks >0:      
-
-        print 'n_clicks = '+str(n_clicks) +'\n'
-        print 'input1/reward = '+str(input1) +'\n'
-        print 'input2/Pop size= '+str(input2) +'\n'
-        print 'input3/GA algo = '+str(input3) +'\n'
-        print 'NewData {}'.format(filename)
+    while n_clicks >0:           
         
-        #trainData = 'Data1.txt'#"2_1000_0_1600_0_0_CV_0_Train.txt" 
-        #trainData = "Data1.txt"
-        trainData = filename
+        outProg, outNew, outPop, bitLength, CVpartitions, graphPerformance, iterList, lastIter, sub, testData, trackCycles = XCS_parameters(filename, input1, input2, input3, input4)
         
-        #input1, input2, input3, input4 = 1000, 200, 0, 0
-        graphPerformance = False
-        testData = "2_1000_0_1600_0_0_CV_0_Test.txt"
-        outProg = "FirstDataTrack"
-        outPop = "PopulationOutput"
-        outNew = "NewDataTrack"
-        bitLength = 1    
-        reward = input1 
-        #reward = 1000
-        CVpartitions = 2
-        iterInput = '5000'
-        #trackCycles = 'Default' # set tracking cycles to number of data samples - trackCycles = 100 
-        trackCycles = '500'#100
-        pop = input2 
-        #pop = 200
-        sub = 0
-        select = input3
-        #select = 0
-        
-        #Figure out the iteration stops for evaluation, and the max iterations.
-        iterList = iterInput.split('.')
-        for i in range(len(iterList)):
-            iterList[i] = int(iterList[i])
-        lastIter = iterList[len(iterList)-1]
-        
-    
         print '\n Running New XCS implementation for n_clicks = {}'.format(n_clicks)+ ' \n'
         
-        #print 'XCS Test Output from first run {}'.result['filename %c'%trainData] +'\n'
-    
         global xcs
-        xcs.updateXCS(trainData)
+        xcs.updateXCS(filename)
         print 'XCS Test Output from n_clicks = {}'.format(n_clicks) + ' is {}'.format(xcs.test_output)
         
         global result
-        result['{}'.format(trainData)] = xcs.test_output[i+1][1]
+        result['{}'.format(filename)] = xcs.test_output[n_clicks][1]
         
         print 'Result {}'.format(result)
-        print '\n For Graph \n'
-        
-        print '\n n_clicks = {}'.format(n_clicks)
-        print '\n accuracy = {}'.format(result['{}'.format(trainData)])
+        print '\n accuracy = {}'.format(result['{}'.format(filename)])
         
         trace = go.Bar(
                 x = list(result.keys()),
@@ -415,14 +331,137 @@ def XCS_Update(n_clicks, filename, input1, input2 , input3 ):
                         id = 'run-xcs',
                         figure= fig
                         )
+
+
+
+
+###################
+## Static functions        
+###################
+
+def iterFunc(iterInput):
+    """
+    Function to iterate over learning cycles and save it in a list    
+    """
+    
+    iterList = iterInput.split('.')
+    for i in range(len(iterList)):
+        iterList[i] = int(iterList[i])
+    lastIter = iterList[len(iterList)-1]
+    
+    return iterList, lastIter
+
+
+#text to excel converter
+def txtToExcel(textData, excelData, excelSheet):     
+    """
+    Function to export text output in an excel format
+    """
        
+    datasetList = []
+    try:
+        f = open(textData, 'r')
+        headerList = f.readline().split('\t')   #strip off first row
+        for line in f:
+            lineList = line.strip('\n').split('\t')
+            datasetList.append(lineList)
+        f.close()
+    
+    except:
+        print ("Unexpected error:", sys.exc_info()[0])
+        raise
+    
+    df = pd.DataFrame(datasetList)
+        
+    try:      
+        # open existing workbook
+        book = load_workbook(excelData)
+        writer = pd.ExcelWriter(excelData, engine='openpyxl')
+        writer.book = book
+        df.to_excel(writer, excelSheet)
+        writer.save()
+    except:
+        df.to_excel(excelData, excelSheet)        
+  
+#parsing text data            
+def parse_data(contents, filename):
+    """
+    Function to parse the content of a text file and return in a DataTable format
+    """
+    if contents is not None:
+        
+        print filename
+        print 'processed data from file ' + filename
+    
+        try:
+            if 'csv' or 'txt' in filename:
+                # Assume that the user uploaded a CSV file
+                df = pd.read_csv(filename, sep = '\t', nrows = 10)
+            elif 'xls' in filename:
+                # Assume that the user uploaded an excel file
+                df = pd.read_excel(filename)
+        except Exception as e:
+            print(e)
+            return html.Div([
+                'There was an error processing this file.'
+            ])
+    
+        return html.Div([
+            html.H5(filename),
+            
+            # Use the DataTable prototype component:
+            # github.com/plotly/dash-table-experiments
+            dt.DataTable(rows=df.to_dict('records')),
+    
+            #dt.VirtualizedTable(df),
+            html.Hr(),  # horizontal line
+    
+            # For debugging, display the raw contents provided by the web browser
+            html.Div('Raw Content'),
+            html.Pre(contents[0:10] + '...', style={
+                'whiteSpace': 'pre-wrap',
+                'wordBreak': 'break-all'
+            })
+        ])
+    else:
+        return 'no contents'
 
-
-
-
-
+def XCS_parameters(filename, input1, input2, input3, input4):
+     
+    print 'input1/reward = '+str(input1) +'\n'
+    print 'input2/Pop size= '+str(input2) +'\n'
+    print 'input3/GA algo = '+str(input3) +'\n'
+    print 'input4/Learning cycles = '+str(input4) +'\n'
+    print 'NewData {}'.format(filename)
+    
+        #trainData = 'Data1.txt'#"2_1000_0_1600_0_0_CV_0_Train.txt" 
+    #trainData = "Data1.txt"
+        
+    #input1, input2, input3, input4 = 1000, 200, 0, 0
+    graphPerformance = False
+    testData = "2_1000_0_1600_0_0_CV_0_Test.txt"
+    outProg = "FirstDataTrack"
+    outNew = "NewDataTrack"
+    outPop = "PopulationOutput"
+    bitLength = 1    
+    reward = input1 
+    #reward = 1000
+    CVpartitions = 2
+    iterInput = input4
+    #iterInput = '5000'
+    #trackCycles = 'Default' # set tracking cycles to number of data samples - trackCycles = 100 
+    trackCycles = '100'#100
+    pop = input2 
+    #pop = 200
+    sub = 0
+    select = input3
+    #select = 0
+    
+    #Figure out the iteration stops for evaluation, and the max iterations.
+    iterList, lastIter = iterFunc(iterInput)
+    
+    return outProg, outNew, outPop, bitLength, CVpartitions, graphPerformance, iterList, lastIter, sub, testData, trackCycles
+    
+    
 if __name__ == '__main__':
     app.run_server(debug=True, threaded=True)
-
-
-

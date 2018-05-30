@@ -54,26 +54,29 @@ app.layout = html.Div([
                 html.Hr(), 
                                
                 html.H3('Select iAgent parameters'),
-                
+                #input-reward --> input-reward
                 html.Label('Reinforcement Reward', title = 'What is the reinforcement reward for each correct prediction?'),
-                dcc.Input(id='input-1', type = 'number', value = 1000),
+                dcc.Input(id='input-reward', type = 'number', value = 1000),
 
+                #input-rule-pop --> input-rule-pop
                 html.Br(),
                 html.Label('Rule Population', title = 'What is the maximum number of rules to be generated?'),
-                dcc.Input(id='input-2', type = 'text', value = 500),
+                dcc.Input(id='input-rule-pop', type = 'text', value = 200),
                 
+                #input-GA --> input-GA
                 html.Br(),
                 html.Label('Genetic Algoritm', title = 'Which genetic algorithm to use?'),
-                dcc.Dropdown(id='input-3',
+                dcc.Dropdown(id='input-GA',
                              options = [
                                      {'label': 'Roulette Wheel', 'value': 0},
                                      {'label': 'Tournament', 'value': 1}
                                      ],
                              value = 0),
-                             
+                
+                #input-learning-cycle --> input-learning-cycle           
                 html.Br(),
                 html.Label('Learning cycle', title = 'Enter learning cycles (separated by dot)'),
-                dcc.Input(id='input-4', type = 'text', value = '500'),
+                dcc.Input(id='input-learning-cycle', type = 'text', value = '20000'),
                                 
                 html.Hr(),
 
@@ -94,8 +97,8 @@ app.layout = html.Div([
                         }),
                 #dcc.Upload(html.Button('Upload File')),
                 html.Div(id='output-data-upload'),
-                html.Div(dt.DataTable(rows=[{}]),
-                         style={'display': 'none'}),
+                html.Div(dt.DataTable(rows=[{}])),
+                         #style={'display': 'none'}),
                 
                
                 html.Br(),  
@@ -106,7 +109,7 @@ app.layout = html.Div([
                 
                 
                 #Button for running on training data
-                html.Button('Run XCS algo', id='button-1'),
+                html.Button('Run XCS algo', id='button-run'),
                 html.Div(id='run-xcs-button'),
 
 #                html.Br(),
@@ -132,16 +135,20 @@ app.layout = html.Div([
 
                 #dcc.Upload(html.Button('Upload File')),
                 html.Div(id='output-data-upload-new'),
-                html.Div(dt.DataTable(rows=[{}]),
-                         style={'display': 'none'}),
+                html.Div(dt.DataTable(rows=[{}])),
+                         #style={'display': 'none'}),
                 
                 html.Br(),
-                html.Button('Update XCS algo', id='button-2'),
+                html.Button('Update XCS algo', id='button-update'),
                 html.Div(id='update-xcs-button'),
                 html.Br(),
                 
+                #Button for testing accuracy
+                html.Button('Test Accuracy', id='button-test-accuracy'),
+                html.Div(id='xcs-test-accuracy'),
+                
                 #Export Files - Log, Rule Population, Iteration performances
-                html.Button('Export files - Log/Rule Pop/Iteration Results', id='button-3'),
+                html.Button('Export files - Log/Rule Pop/Iteration Results', id='button-export'),
                 html.Div(id='export-files-button'),
                 html.Br()           
                      
@@ -188,8 +195,8 @@ def print_output_new(contents, filename):
 
 @app.callback(
     Output('export-files-button', 'children'),
-    [Input('button-3', 'n_clicks')],
-    state=[State('input-4', 'value')]
+    [Input('button-export', 'n_clicks')],
+    state=[State('input-learning-cycle', 'value')]
     )
 def XCS_Export(n_clicks, value):
     """
@@ -209,13 +216,13 @@ def XCS_Export(n_clicks, value):
 
 @app.callback(
     Output('run-xcs-button', 'children'),
-    [Input('button-1', 'n_clicks'),
+    [Input('button-run', 'n_clicks'),
      Input('upload-data', 'filename')
      ],
-    state=[State('input-1', 'value'),
-           State('input-2', 'value'),
-           State('input-3', 'value'),
-           State('input-4', 'value')
+    state=[State('input-reward', 'value'),
+           State('input-rule-pop', 'value'),
+           State('input-GA', 'value'),
+           State('input-learning-cycle', 'value')
            #,State('filename', 'value')
            ]
            )
@@ -254,38 +261,57 @@ def XCS_Run(n_clicks, filename, input1, input2 , input3, input4 ):
         print  xcs.test_output
 
         global result
-        result['{}'.format(filename)] = xcs.test_output[0][1]
+        result['{}'.format(filename)] = xcs.test_output[0][1]*100
         
         print 'Result {}'.format(result)
     
-        trace = go.Bar(
-        x = list(result.keys()),
-        y = list(result.values())
-            )
-        
-        layout = go.Layout(
-                width = 800, 
-                height = 400,
-                title = 'XCS implementation',
-                xaxis = dict( title ='Data Used'), 
-                yaxis = dict( title ='Accuracy on test data in %'))
-        fig = go.Figure(data = [trace], layout = layout)
-        #accuracy = [xcs.test_output[0][1]]
-        
-        return dcc.Graph(
-                id = 'run-xcs',
-                figure = fig)
-         
+        return html.Div('XCS algorithm trained for the first time. \n Click the below button to test accuracy')
+    
+               
+@app.callback(
+    Output('xcs-test-accuracy', 'children'),
+    [Input('button-test-accuracy', 'n_clicks')
+     ]
+    )
+def XCS_test_accuracy(n_clicks):
+    """
+    Callback Function to test the accuracy of XCS algorithm
+    Results is a global object - updated everytime the algorithm is run or updated. 
+    Returns a graph containing accuracy.
+    """  
+    global result
 
+    print 'Result {}'.format(result)
+
+    trace = go.Bar(
+            x = list(result.keys()),
+            y = list(result.values())
+            )
+    
+    layout = go.Layout(
+            width = 800, 
+            height = 400,
+            title = 'XCS implementation',
+            titlefont = dict(family = 'Courier New, monospace', size = 20, color = '#7f7f7f'),
+            margin = dict( l = 100, r = 100),
+            xaxis = dict( title ='Data Used'), 
+            yaxis = dict( title ='Accuracy on test data in %'))
+    fig = go.Figure(data = [trace], layout = layout)
+    
+    return dcc.Graph(
+                    id = 'run-xcs',
+                    figure = fig)
+    
+    
 @app.callback(
     Output('update-xcs-button', 'children'),
-    [Input('button-2', 'n_clicks'),
+    [Input('button-update', 'n_clicks'),
      Input('upload-data-new', 'filename')
      ],
-    state=[State('input-1', 'value'),
-           State('input-2', 'value'),
-           State('input-3', 'value'),
-           State('input-4', 'value')
+    state=[State('input-reward', 'value'),
+           State('input-rule-pop', 'value'),
+           State('input-GA', 'value'),
+           State('input-learning-cycle', 'value')
            #,State('newData', 'value')
            ]
            )
@@ -307,32 +333,12 @@ def XCS_Update(n_clicks, filename, input1, input2 , input3, input4 ):
         print 'XCS Test Output from n_clicks = {}'.format(n_clicks) + ' is {}'.format(xcs.test_output)
         
         global result
-        result['{}'.format(filename)] = xcs.test_output[n_clicks][1]
+        result['{}_{}'.format(filename, n_clicks)] = xcs.test_output[n_clicks][1]*100
         
         print 'Result {}'.format(result)
-        print '\n accuracy = {}'.format(result['{}'.format(filename)])
+        print '\n accuracy = {}'.format(result['{}_{}'.format(filename, n_clicks)])
         
-        trace = go.Bar(
-                x = list(result.keys()),
-                y = list(result.values())
-                )
-        layout = go.Layout(
-                width = 800, 
-                height = 400,
-                title = 'XCS implementation',
-                xaxis = dict( title ='Data Used'), 
-                yaxis = dict( title ='Accuracy on test data in %'))
-        
-        fig = go.Figure(data = [trace],
-                        layout = layout)
-        #return (html.H4(str(XCS_func(1,1))))
-        
-        return dcc.Graph(
-                        id = 'run-xcs',
-                        figure= fig
-                        )
-
-
+        return html.Div('XCS algorithm updated. \n Click the below button to test accuracy')
 
 
 ###################
@@ -396,7 +402,7 @@ def parse_data(contents, filename):
         try:
             if 'csv' or 'txt' in filename:
                 # Assume that the user uploaded a CSV file
-                df = pd.read_csv(filename, sep = '\t', nrows = 10)
+                df = pd.read_csv(filename, sep = '\t')
             elif 'xls' in filename:
                 # Assume that the user uploaded an excel file
                 df = pd.read_excel(filename)
@@ -411,13 +417,15 @@ def parse_data(contents, filename):
             
             # Use the DataTable prototype component:
             # github.com/plotly/dash-table-experiments
-            dt.DataTable(rows=df.to_dict('records')),
+            dt.DataTable(rows=df.to_dict('records'),
+                         # optional - sets the order of columns
+                         columns=list(df.columns)),
     
             #dt.VirtualizedTable(df),
             html.Hr(),  # horizontal line
     
             # For debugging, display the raw contents provided by the web browser
-            html.Div('Raw Content'),
+            html.Div('Raw Content of the file'),
             html.Pre(contents[0:10] + '...', style={
                 'whiteSpace': 'pre-wrap',
                 'wordBreak': 'break-all'
@@ -427,7 +435,10 @@ def parse_data(contents, filename):
         return 'no contents'
 
 def XCS_parameters(filename, input1, input2, input3, input4):
-     
+    """
+    Function to pass the XCS parameters. 
+        Can be passed in a better way
+    """     
     print 'input1/reward = '+str(input1) +'\n'
     print 'input2/Pop size= '+str(input2) +'\n'
     print 'input3/GA algo = '+str(input3) +'\n'
@@ -450,7 +461,7 @@ def XCS_parameters(filename, input1, input2, input3, input4):
     iterInput = input4
     #iterInput = '5000'
     #trackCycles = 'Default' # set tracking cycles to number of data samples - trackCycles = 100 
-    trackCycles = '100'#100
+    trackCycles = '1000'#100
     pop = input2 
     #pop = 200
     sub = 0

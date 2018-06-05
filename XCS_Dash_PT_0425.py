@@ -4,6 +4,13 @@ Created on Tue Apr 24 10:34:11 2018
 
 @author: Prakash.Tiwari
 
+Updates: 
+    5June2018:
+        Removed .txt from filename in the graphs
+        Showing only 20 lines from the data in UI
+        Updated Results dictionary into OrderedDict, to preserve the order of data for graph
+        Added y-axis, x-axis line to the graph
+
 """
 #!/usr/bin/env python
 import pandas as pd
@@ -29,6 +36,7 @@ import numpy as np
 from random import randint
 import plotly.graph_objs as go
 import base64
+from collections import OrderedDict
 
 
 
@@ -76,7 +84,7 @@ app.layout = html.Div([
                 #input-learning-cycle --> input-learning-cycle           
                 html.Br(),
                 html.Label('Learning cycle', title = 'Enter learning cycles (separated by dot)'),
-                dcc.Input(id='input-learning-cycle', type = 'text', value = '20000'),
+                dcc.Input(id='input-learning-cycle', type = 'text', value = '200'),
                                 
                 html.Hr(),
 
@@ -97,17 +105,14 @@ app.layout = html.Div([
                         }),
                 #dcc.Upload(html.Button('Upload File')),
                 html.Div(id='output-data-upload'),
-                html.Div(dt.DataTable(rows=[{}])),
-                         #style={'display': 'none'}),
+                html.Div(dt.DataTable(rows=[{}]),
+                         style={'display': 'none'}),
                 
-               
                 html.Br(),  
-               
-                
+                               
 #                html.Label('upload-data', title = 'Enter first data'),
 #                dcc.Input(id='filename', value = 'Data1.txt'),
-                
-                
+                                
                 #Button for running on training data
                 html.Button('Run XCS algo', id='button-run'),
                 html.Div(id='run-xcs-button'),
@@ -135,14 +140,15 @@ app.layout = html.Div([
 
                 #dcc.Upload(html.Button('Upload File')),
                 html.Div(id='output-data-upload-new'),
-                html.Div(dt.DataTable(rows=[{}])),
-                         #style={'display': 'none'}),
+                html.Div(dt.DataTable(rows=[{}]),
+                         style={'display': 'none'}),
                 
                 html.Br(),
                 html.Button('Update XCS algo', id='button-update'),
                 html.Div(id='update-xcs-button'),
                 html.Br(),
                 
+
                 #Button for testing accuracy
                 html.Button('Test Accuracy', id='button-test-accuracy'),
                 html.Div(id='xcs-test-accuracy'),
@@ -154,17 +160,13 @@ app.layout = html.Div([
                      
                 ]
             )
-
-   
-
-                        
+                       
 """
 XCS Results
 """
 
-#
 global result
-result = {}
+result = OrderedDict()
       
 ###################
 ## Callback functions        
@@ -192,6 +194,7 @@ def print_output_new(contents, filename):
     Calls parse_data to return the output
     """
     return [parse_data(contents, filename)]
+
 
 @app.callback(
     Output('export-files-button', 'children'),
@@ -261,10 +264,10 @@ def XCS_Run(n_clicks, filename, input1, input2 , input3, input4 ):
         print  xcs.test_output
 
         global result
-        result['{}'.format(filename)] = xcs.test_output[0][1]*100
+        result['R_{}_{}'.format(filename.replace('.txt',''), n_clicks)] = xcs.test_output[0][1]*100
         
         print 'Result {}'.format(result)
-    
+        
         return html.Div('XCS algorithm trained for the first time. \n Click the below button to test accuracy')
     
                
@@ -294,8 +297,8 @@ def XCS_test_accuracy(n_clicks):
             title = 'XCS implementation',
             titlefont = dict(family = 'Courier New, monospace', size = 20, color = '#7f7f7f'),
             margin = dict( l = 100, r = 100),
-            xaxis = dict( title ='Data Used'), 
-            yaxis = dict( title ='Accuracy on test data in %'))
+            xaxis = dict( title ='Data Used', showgrid=True, showline = True, linewidth = 3), 
+            yaxis = dict( title ='Accuracy on test data in %', showgrid=True, range = [0,100], showline = True, linewidth = 3))
     fig = go.Figure(data = [trace], layout = layout)
     
     return dcc.Graph(
@@ -333,10 +336,9 @@ def XCS_Update(n_clicks, filename, input1, input2 , input3, input4 ):
         print 'XCS Test Output from n_clicks = {}'.format(n_clicks) + ' is {}'.format(xcs.test_output)
         
         global result
-        result['{}_{}'.format(filename, n_clicks)] = xcs.test_output[n_clicks][1]*100
+        result['U_{}_{}'.format(filename.replace('.txt', ''), n_clicks)] = xcs.test_output[n_clicks][1]*100
         
-        print 'Result {}'.format(result)
-        print '\n accuracy = {}'.format(result['{}_{}'.format(filename, n_clicks)])
+        print 'Result {}'.format(result) 
         
         return html.Div('XCS algorithm updated. \n Click the below button to test accuracy')
 
@@ -395,14 +397,13 @@ def parse_data(contents, filename):
     Function to parse the content of a text file and return in a DataTable format
     """
     if contents is not None:
-        
-        print filename
-        print 'processed data from file ' + filename
+
+        print 'processed data from file ' + filename + '\n Length of contents: %d' %len(contents)
     
         try:
             if 'csv' or 'txt' in filename:
                 # Assume that the user uploaded a CSV file
-                df = pd.read_csv(filename, sep = '\t')
+                df = pd.read_csv(filename, sep = '\t', nrows = 20)
             elif 'xls' in filename:
                 # Assume that the user uploaded an excel file
                 df = pd.read_excel(filename)
@@ -425,11 +426,11 @@ def parse_data(contents, filename):
             html.Hr(),  # horizontal line
     
             # For debugging, display the raw contents provided by the web browser
-            html.Div('Raw Content of the file'),
-            html.Pre(contents[0:10] + '...', style={
-                'whiteSpace': 'pre-wrap',
-                'wordBreak': 'break-all'
-            })
+            html.Div('Raw Content of the file')
+#            html.Pre(contents[0:20] + '...', style={
+#                'whiteSpace': 'pre-wrap',
+#                'wordBreak': 'break-all'
+#            })
         ])
     else:
         return 'no contents'
@@ -450,7 +451,7 @@ def XCS_parameters(filename, input1, input2, input3, input4):
         
     #input1, input2, input3, input4 = 1000, 200, 0, 0
     graphPerformance = False
-    testData = "2_1000_0_1600_0_0_CV_0_Test.txt"
+    testData = "Data_Test.txt"
     outProg = "FirstDataTrack"
     outNew = "NewDataTrack"
     outPop = "PopulationOutput"
